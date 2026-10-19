@@ -487,7 +487,8 @@ type ActionUpdate struct {
 	Error *core.ExecutionError `protobuf:"bytes,3,opt,name=error,proto3,oneof" json:"error,omitempty"`
 	// the output uri for the action
 	OutputUri string `protobuf:"bytes,4,opt,name=output_uri,json=outputUri,proto3" json:"output_uri,omitempty"`
-	// The value literal for the action (used by condition actions).
+	// The value literal for the action: a condition's signalled value, or the value a running task
+	// published with `UpdateRequest.value` (e.g. an interactive session's address).
 	Value *core.Literal `protobuf:"bytes,5,opt,name=value,proto3,oneof" json:"value,omitempty"`
 }
 

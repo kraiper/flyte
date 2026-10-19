@@ -264,7 +264,8 @@ export type ActionUpdate = Message<"flyteidl2.workflow.ActionUpdate"> & {
   outputUri: string;
 
   /**
-   * The value literal for the action (used by condition actions).
+   * The value literal for the action: a condition's signalled value, or the value a running task
+   * published with `UpdateRequest.value` (e.g. an interactive session's address).
    *
    * @generated from field: optional flyteidl2.core.Literal value = 5;
    */

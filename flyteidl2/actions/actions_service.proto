@@ -113,6 +113,13 @@ message UpdateRequest {
 
   reserved 4;
   reserved "state";
+
+  // A value the running action publishes to whoever watches it, e.g. the address of an interactive
+  // sandbox session once it is ready to serve. It is delivered on `ActionUpdate.value`, the same field
+  // that carries a condition's signalled value, without waiting for the action to finish. It holds for
+  // the rest of the attempt: an update without a value keeps it, a new attempt or a terminal phase
+  // clears it. Watchers are notified when it changes.
+  optional flyteidl2.core.Literal value = 5;
 }
 
 // UpdateResponse is the response message for updating the status of an action.

@@ -106,6 +106,7 @@ message ActionUpdate {
   // the output uri for the action
   string output_uri = 4;
 
-  // The value literal for the action (used by condition actions).
+  // The value literal for the action: a condition's signalled value, or the value a running task
+  // published with `UpdateRequest.value` (e.g. an interactive session's address).
   optional flyteidl2.core.Literal value = 5;
 }

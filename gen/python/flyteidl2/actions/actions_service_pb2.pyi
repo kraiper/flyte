@@ -48,14 +48,16 @@ class EnqueueResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class UpdateRequest(_message.Message):
-    __slots__ = ["action_id", "attempt", "status"]
+    __slots__ = ["action_id", "attempt", "status", "value"]
     ACTION_ID_FIELD_NUMBER: _ClassVar[int]
     ATTEMPT_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
     action_id: _identifier_pb2.ActionIdentifier
     attempt: int
     status: _run_definition_pb2.ActionStatus
-    def __init__(self, action_id: _Optional[_Union[_identifier_pb2.ActionIdentifier, _Mapping]] = ..., attempt: _Optional[int] = ..., status: _Optional[_Union[_run_definition_pb2.ActionStatus, _Mapping]] = ...) -> None: ...
+    value: _literals_pb2.Literal
+    def __init__(self, action_id: _Optional[_Union[_identifier_pb2.ActionIdentifier, _Mapping]] = ..., attempt: _Optional[int] = ..., status: _Optional[_Union[_run_definition_pb2.ActionStatus, _Mapping]] = ..., value: _Optional[_Union[_literals_pb2.Literal, _Mapping]] = ...) -> None: ...
 
 class UpdateResponse(_message.Message):
     __slots__ = []
