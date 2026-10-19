@@ -197,6 +197,11 @@ func (in *TaskActionStatus) DeepCopyInto(out *TaskActionStatus) {
 		*out = make([]byte, len(*in))
 		copy(*out, *in)
 	}
+	if in.PublishedValue != nil {
+		in, out := &in.PublishedValue, &out.PublishedValue
+		*out = make([]byte, len(*in))
+		copy(*out, *in)
+	}
 	if in.SignalledAt != nil {
 		in, out := &in.SignalledAt, &out.SignalledAt
 		*out = (*in).DeepCopy()

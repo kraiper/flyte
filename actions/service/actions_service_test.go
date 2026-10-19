@@ -80,7 +80,7 @@ func TestUpdate(t *testing.T) {
 		svc := NewActionsService(m)
 
 		status := &workflow.ActionStatus{Phase: common.ActionPhase_ACTION_PHASE_SUCCEEDED}
-		m.EXPECT().PutStatus(mock.Anything, testActionID, uint32(1), status).Return(nil)
+		m.EXPECT().PutStatus(mock.Anything, testActionID, uint32(1), status, (*core.Literal)(nil)).Return(nil)
 
 		resp, err := svc.Update(context.Background(), connect.NewRequest(&actions.UpdateRequest{
 			ActionId: testActionID,
@@ -92,12 +92,31 @@ func TestUpdate(t *testing.T) {
 		assert.NotNil(t, resp)
 	})
 
+	t.Run("passes the published value through", func(t *testing.T) {
+		m := mocks.NewActionsClientInterface(t)
+		svc := NewActionsService(m)
+
+		status := &workflow.ActionStatus{Phase: common.ActionPhase_ACTION_PHASE_RUNNING}
+		value := &core.Literal{Value: &core.Literal_Scalar{Scalar: &core.Scalar{Value: &core.Scalar_Primitive{
+			Primitive: &core.Primitive{Value: &core.Primitive_StringValue{StringValue: "http://agent:8080/s/x"}},
+		}}}}
+		m.EXPECT().PutStatus(mock.Anything, testActionID, uint32(1), status, value).Return(nil)
+
+		_, err := svc.Update(context.Background(), connect.NewRequest(&actions.UpdateRequest{
+			ActionId: testActionID,
+			Attempt:  1,
+			Status:   status,
+			Value:    value,
+		}))
+		assert.NoError(t, err)
+	})
+
 	t.Run("client error returns internal", func(t *testing.T) {
 		m := mocks.NewActionsClientInterface(t)
 		svc := NewActionsService(m)
 
 		status := &workflow.ActionStatus{Phase: common.ActionPhase_ACTION_PHASE_RUNNING}
-		m.EXPECT().PutStatus(mock.Anything, testActionID, uint32(1), status).Return(errors.New("write failed"))
+		m.EXPECT().PutStatus(mock.Anything, testActionID, uint32(1), status, (*core.Literal)(nil)).Return(errors.New("write failed"))
 
 		_, err := svc.Update(context.Background(), connect.NewRequest(&actions.UpdateRequest{
 			ActionId: testActionID,

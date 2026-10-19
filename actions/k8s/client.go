@@ -1,6 +1,7 @@
 package k8s
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"hash/fnv"
@@ -48,6 +49,19 @@ type ActionUpdate struct {
 	// SignalValue is the resolved signal payload of a condition action, carried
 	// inline (never an outputs.pb). Nil for tasks and unsignalled conditions.
 	SignalValue *core.Literal
+	// PublishedValue is the value a running task published with
+	// UpdateRequest.value. Nil for conditions, for tasks that published nothing,
+	// and once the task is terminal.
+	PublishedValue *core.Literal
+}
+
+// Value is what watchers receive on ActionUpdate.value: a condition's signal
+// payload or a running task's published value.
+func (u *ActionUpdate) Value() *core.Literal {
+	if u.SignalValue != nil {
+		return u.SignalValue
+	}
+	return u.PublishedValue
 }
 
 const (
@@ -257,8 +271,11 @@ func (c *ActionsClient) AbortAction(ctx context.Context, actionID *common.Action
 	return nil
 }
 
-// PutStatus updates the latest attempt metadata for a TaskAction.
-func (c *ActionsClient) PutStatus(ctx context.Context, actionID *common.ActionIdentifier, attempt uint32, status *workflow.ActionStatus) error {
+// PutStatus updates the latest attempt metadata for a TaskAction, and the value
+// the running task publishes (UpdateRequest.value). A value replaces the
+// current one, a nil value keeps it within the same attempt, and a new attempt
+// clears it.
+func (c *ActionsClient) PutStatus(ctx context.Context, actionID *common.ActionIdentifier, attempt uint32, status *workflow.ActionStatus, value *core.Literal) error {
 	taskActionName := buildTaskActionName(actionID)
 
 	// Get current TaskAction
@@ -274,14 +291,21 @@ func (c *ActionsClient) PutStatus(ctx context.Context, actionID *common.ActionId
 		return nil
 	}
 
-	// Skip update if the attempts and cache status do not change
+	published, err := nextPublishedValue(taskAction.Status.PublishedValue, taskAction.Status.Attempts, status.GetAttempts(), value)
+	if err != nil {
+		return fmt.Errorf("failed to marshal published value for TaskAction %s: %w", taskActionName, err)
+	}
+
+	// Skip update if the attempts, cache status and published value do not change
 	if taskAction.Status.Attempts == status.GetAttempts() &&
-		taskAction.Status.CacheStatus == status.GetCacheStatus() {
+		taskAction.Status.CacheStatus == status.GetCacheStatus() &&
+		bytes.Equal(taskAction.Status.PublishedValue, published) {
 		return nil
 	}
 
 	taskAction.Status.Attempts = status.GetAttempts()
 	taskAction.Status.CacheStatus = status.GetCacheStatus()
+	taskAction.Status.PublishedValue = published
 
 	// Update status subresource
 	if err := c.k8sClient.Status().Update(ctx, taskAction); err != nil {
@@ -693,7 +717,35 @@ func buildActionUpdate(ctx context.Context, taskAction *executorv1.TaskAction, e
 		ShortName:        shortName,
 		ErrorState:       taskAction.Status.ErrorState,
 		SignalValue:      SignalValueFromStatus(ctx, taskAction),
+		PublishedValue:   PublishedValueFromStatus(ctx, taskAction),
 	}
+}
+
+// nextPublishedValue returns the serialized value a task holds after an update:
+// a new value replaces the held one, no value keeps it within the attempt, and a
+// new attempt clears it.
+func nextPublishedValue(held []byte, heldAttempts, attempts uint32, value *core.Literal) ([]byte, error) {
+	if value != nil {
+		return proto.MarshalOptions{Deterministic: true}.Marshal(value)
+	}
+	if attempts != heldAttempts {
+		return nil, nil
+	}
+	return held, nil
+}
+
+// PublishedValueFromStatus unmarshals the value a running task published.
+// Returns nil when absent, invalid, or once the action is terminal.
+func PublishedValueFromStatus(ctx context.Context, taskAction *executorv1.TaskAction) *core.Literal {
+	if len(taskAction.Status.PublishedValue) == 0 || isTerminalPhase(GetPhaseFromConditions(taskAction)) {
+		return nil
+	}
+	value := &core.Literal{}
+	if err := proto.Unmarshal(taskAction.Status.PublishedValue, value); err != nil {
+		logger.Warnf(ctx, "failed to unmarshal published value for %s: %v", taskAction.Name, err)
+		return nil
+	}
+	return value
 }
 
 // SignalValueFromStatus unmarshals the condition signal value persisted on the

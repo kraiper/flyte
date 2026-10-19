@@ -152,7 +152,7 @@ func (s *ActionsService) WatchForUpdates(
 				ActionId:  update.ActionID,
 				Phase:     update.Phase,
 				OutputUri: update.OutputUri,
-				Value:     update.SignalValue,
+				Value:     update.Value(),
 			}
 			if (update.Phase == common.ActionPhase_ACTION_PHASE_FAILED ||
 				update.Phase == common.ActionPhase_ACTION_PHASE_TIMED_OUT) &&
@@ -184,7 +184,7 @@ func (s *ActionsService) Update(
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
-	if err := s.client.PutStatus(ctx, req.Msg.ActionId, req.Msg.Attempt, req.Msg.Status); err != nil {
+	if err := s.client.PutStatus(ctx, req.Msg.ActionId, req.Msg.Attempt, req.Msg.Status, req.Msg.GetValue()); err != nil {
 		logger.Errorf(ctx, "Failed to update action: %v", err)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -228,7 +228,7 @@ func taskActionToUpdate(ctx context.Context, action *executorv1.TaskAction) *wor
 		},
 		Phase:     phase,
 		OutputUri: k8s.BuildOutputUri(ctx, action),
-		Value:     k8s.SignalValueFromStatus(ctx, action),
+		Value:     snapshotValue(ctx, action),
 	}
 	if (phase == common.ActionPhase_ACTION_PHASE_FAILED ||
 		phase == common.ActionPhase_ACTION_PHASE_TIMED_OUT) &&
@@ -236,6 +236,15 @@ func taskActionToUpdate(ctx context.Context, action *executorv1.TaskAction) *wor
 		update.Error = errorStateToExecutionError(action.Status.ErrorState)
 	}
 	return update
+}
+
+// snapshotValue is ActionUpdate.value for a child in the initial snapshot: a
+// condition's signal payload, or the value a running task published.
+func snapshotValue(ctx context.Context, action *executorv1.TaskAction) *core.Literal {
+	if v := k8s.SignalValueFromStatus(ctx, action); v != nil {
+		return v
+	}
+	return k8s.PublishedValueFromStatus(ctx, action)
 }
 
 func errorStateToExecutionError(es *executorv1.ErrorState) *core.ExecutionError {

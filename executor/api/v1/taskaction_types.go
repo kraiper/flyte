@@ -364,6 +364,14 @@ type TaskActionStatus struct {
 	// +optional
 	SignalValue []byte `json:"signalValue,omitempty"`
 
+	// PublishedValue is the proto-serialized core.Literal a running task published with
+	// actions.UpdateRequest.value (e.g. an interactive session's address). Watchers of the
+	// parent receive it on ActionUpdate.value while the task runs. Unlike SignalValue it does
+	// not complete the action. It is replaced by a later value and cleared on a new attempt.
+	// Only meaningful for task actions.
+	// +optional
+	PublishedValue []byte `json:"publishedValue,omitempty"`
+
 	// SignalledBy identifies the principal that signalled the condition.
 	// +optional
 	SignalledBy string `json:"signalledBy,omitempty"`
