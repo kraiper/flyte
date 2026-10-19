@@ -170,6 +170,38 @@ spec:
           status:
             description: status defines the observed state of TaskAction
             properties:
+              address:
+                description: |-
+                  Address is where the running task can be reached, as reported by its worker with
+                  actions.UpdateRequest.address (e.g. an interactive sandbox session). Watchers of the parent
+                  receive it on ActionUpdate.address while the task runs. It is replaced by a later address
+                  and cleared on a new attempt; it is not delivered once the task is terminal.
+                properties:
+                  cluster:
+                    description: Cluster is the cluster the action runs in.
+                    type: string
+                  pod:
+                    description: Pod is the pod serving the action, when it has its
+                      own pod.
+                    properties:
+                      ip:
+                        description: IP is the pod's IP, reachable from inside the
+                          cluster.
+                        type: string
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                      port:
+                        description: Port is the port the action serves on.
+                        format: int32
+                        type: integer
+                    type: object
+                  url:
+                    description: URL is an endpoint the action serves on, reachable
+                      from inside the cluster.
+                    type: string
+                type: object
               attemptStartedAt:
                 description: |-
                   AttemptStartedAt is when the current user attempt first entered the Running phase.
@@ -318,15 +350,6 @@ spec:
                 description: PluginStateVersion tracks the version of the plugin state
                   schema for compatibility.
                 type: integer
-              publishedValue:
-                description: |-
-                  PublishedValue is the proto-serialized core.Literal a running task published with
-                  actions.UpdateRequest.value (e.g. an interactive session's address). Watchers of the
-                  parent receive it on ActionUpdate.value while the task runs. Unlike SignalValue it does
-                  not complete the action. It is replaced by a later value and cleared on a new attempt.
-                  Only meaningful for task actions.
-                format: byte
-                type: string
               signalValue:
                 description: |-
                   SignalValue is the proto-serialized core.Literal supplied by Signal.

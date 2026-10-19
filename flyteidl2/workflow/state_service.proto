@@ -3,6 +3,7 @@ syntax = "proto3";
 package flyteidl2.workflow;
 
 import "buf/validate/validate.proto";
+import "flyteidl2/common/address.proto";
 import "flyteidl2/common/identifier.proto";
 import "flyteidl2/common/phase.proto";
 import "flyteidl2/core/execution.proto";
@@ -106,7 +107,10 @@ message ActionUpdate {
   // the output uri for the action
   string output_uri = 4;
 
-  // The value literal for the action: a condition's signalled value, or the value a running task
-  // published with `UpdateRequest.value` (e.g. an interactive session's address).
+  // The value literal for the action (used by condition actions).
   optional flyteidl2.core.Literal value = 5;
+
+  // Where the running action can be reached, as reported by its worker (`UpdateRequest.address`).
+  // Set while the action serves traffic; cleared on a new attempt or a terminal phase.
+  flyteidl2.common.ActionAddress address = 6;
 }

@@ -1,7 +1,6 @@
 package k8s
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"hash/fnv"
@@ -12,6 +11,7 @@ import (
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -49,19 +49,9 @@ type ActionUpdate struct {
 	// SignalValue is the resolved signal payload of a condition action, carried
 	// inline (never an outputs.pb). Nil for tasks and unsignalled conditions.
 	SignalValue *core.Literal
-	// PublishedValue is the value a running task published with
-	// UpdateRequest.value. Nil for conditions, for tasks that published nothing,
-	// and once the task is terminal.
-	PublishedValue *core.Literal
-}
-
-// Value is what watchers receive on ActionUpdate.value: a condition's signal
-// payload or a running task's published value.
-func (u *ActionUpdate) Value() *core.Literal {
-	if u.SignalValue != nil {
-		return u.SignalValue
-	}
-	return u.PublishedValue
+	// Address is where the running task can be reached (UpdateRequest.address).
+	// Nil when it reported none, and once the task is terminal.
+	Address *common.ActionAddress
 }
 
 const (
@@ -271,11 +261,11 @@ func (c *ActionsClient) AbortAction(ctx context.Context, actionID *common.Action
 	return nil
 }
 
-// PutStatus updates the latest attempt metadata for a TaskAction, and the value
-// the running task publishes (UpdateRequest.value). A value replaces the
-// current one, a nil value keeps it within the same attempt, and a new attempt
-// clears it.
-func (c *ActionsClient) PutStatus(ctx context.Context, actionID *common.ActionIdentifier, attempt uint32, status *workflow.ActionStatus, value *core.Literal) error {
+// PutStatus updates the latest attempt metadata for a TaskAction, and where the
+// running task can be reached (UpdateRequest.address). An address replaces the
+// current one, a nil address keeps it within the same attempt, and a new
+// attempt clears it.
+func (c *ActionsClient) PutStatus(ctx context.Context, actionID *common.ActionIdentifier, attempt uint32, status *workflow.ActionStatus, address *common.ActionAddress) error {
 	taskActionName := buildTaskActionName(actionID)
 
 	// Get current TaskAction
@@ -291,21 +281,18 @@ func (c *ActionsClient) PutStatus(ctx context.Context, actionID *common.ActionId
 		return nil
 	}
 
-	published, err := nextPublishedValue(taskAction.Status.PublishedValue, taskAction.Status.Attempts, status.GetAttempts(), value)
-	if err != nil {
-		return fmt.Errorf("failed to marshal published value for TaskAction %s: %w", taskActionName, err)
-	}
+	next := nextAddress(taskAction.Status.Address, taskAction.Status.Attempts, status.GetAttempts(), address)
 
-	// Skip update if the attempts, cache status and published value do not change
+	// Skip update if the attempts, cache status and address do not change
 	if taskAction.Status.Attempts == status.GetAttempts() &&
 		taskAction.Status.CacheStatus == status.GetCacheStatus() &&
-		bytes.Equal(taskAction.Status.PublishedValue, published) {
+		equality.Semantic.DeepEqual(taskAction.Status.Address, next) {
 		return nil
 	}
 
 	taskAction.Status.Attempts = status.GetAttempts()
 	taskAction.Status.CacheStatus = status.GetCacheStatus()
-	taskAction.Status.PublishedValue = published
+	taskAction.Status.Address = next
 
 	// Update status subresource
 	if err := c.k8sClient.Status().Update(ctx, taskAction); err != nil {
@@ -717,35 +704,43 @@ func buildActionUpdate(ctx context.Context, taskAction *executorv1.TaskAction, e
 		ShortName:        shortName,
 		ErrorState:       taskAction.Status.ErrorState,
 		SignalValue:      SignalValueFromStatus(ctx, taskAction),
-		PublishedValue:   PublishedValueFromStatus(ctx, taskAction),
+		Address:          AddressFromStatus(taskAction),
 	}
 }
 
-// nextPublishedValue returns the serialized value a task holds after an update:
-// a new value replaces the held one, no value keeps it within the attempt, and a
-// new attempt clears it.
-func nextPublishedValue(held []byte, heldAttempts, attempts uint32, value *core.Literal) ([]byte, error) {
-	if value != nil {
-		return proto.MarshalOptions{Deterministic: true}.Marshal(value)
+// nextAddress returns the address a task holds after an update: a new address
+// replaces the held one, none keeps it within the attempt, and a new attempt
+// clears it.
+func nextAddress(held *executorv1.ActionAddress, heldAttempts, attempts uint32, address *common.ActionAddress) *executorv1.ActionAddress {
+	if address != nil {
+		return addressToStatus(address)
 	}
 	if attempts != heldAttempts {
-		return nil, nil
+		return nil
 	}
-	return held, nil
+	return held
 }
 
-// PublishedValueFromStatus unmarshals the value a running task published.
-// Returns nil when absent, invalid, or once the action is terminal.
-func PublishedValueFromStatus(ctx context.Context, taskAction *executorv1.TaskAction) *core.Literal {
-	if len(taskAction.Status.PublishedValue) == 0 || isTerminalPhase(GetPhaseFromConditions(taskAction)) {
+func addressToStatus(a *common.ActionAddress) *executorv1.ActionAddress {
+	out := &executorv1.ActionAddress{URL: a.GetUrl(), Cluster: a.GetCluster()}
+	if p := a.GetPod(); p != nil {
+		out.Pod = &executorv1.PodAddress{Namespace: p.GetNamespace(), Name: p.GetName(), IP: p.GetIp(), Port: p.GetPort()}
+	}
+	return out
+}
+
+// AddressFromStatus is where the running task can be reached, or nil when it
+// reported none or is terminal.
+func AddressFromStatus(taskAction *executorv1.TaskAction) *common.ActionAddress {
+	a := taskAction.Status.Address
+	if a == nil || isTerminalPhase(GetPhaseFromConditions(taskAction)) {
 		return nil
 	}
-	value := &core.Literal{}
-	if err := proto.Unmarshal(taskAction.Status.PublishedValue, value); err != nil {
-		logger.Warnf(ctx, "failed to unmarshal published value for %s: %v", taskAction.Name, err)
-		return nil
+	out := &common.ActionAddress{Url: a.URL, Cluster: a.Cluster}
+	if a.Pod != nil {
+		out.Pod = &common.PodAddress{Namespace: a.Pod.Namespace, Name: a.Pod.Name, Ip: a.Pod.IP, Port: a.Pod.Port}
 	}
-	return value
+	return out
 }
 
 // SignalValueFromStatus unmarshals the condition signal value persisted on the

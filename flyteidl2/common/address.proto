@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package flyteidl2.common;
+
+option go_package = "github.com/flyteorg/flyte/v2/gen/go/flyteidl2/common";
+
+// ActionAddress is where a running action can be reached while it serves traffic, for example an
+// interactive sandbox session. Callers use `url` when it is set, and otherwise `pod`. Routing
+// through the data proxy for callers outside the cluster (such as a user's laptop) builds on the
+// same fields.
+message ActionAddress {
+  // An endpoint the action serves on, reachable from inside the cluster. Set by workers that serve
+  // many actions behind one address, e.g. `http://sandbox-agent.ns.svc:8080/s/<session>`.
+  // Preferred over `pod` when set.
+  string url = 1;
+
+  // The pod serving the action, when it has its own pod.
+  PodAddress pod = 2;
+
+  // The cluster the action runs in.
+  string cluster = 3;
+}
+
+// PodAddress locates a pod that serves an action.
+message PodAddress {
+  string namespace = 1;
+  string name = 2;
+  // The pod's IP, reachable from inside the cluster.
+  string ip = 3;
+  // The port the action serves on.
+  uint32 port = 4;
+}
