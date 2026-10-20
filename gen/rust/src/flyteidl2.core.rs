@@ -3119,6 +3119,10 @@ pub enum WorkerKind {
     /// Runs sandboxed orchestrator source in an interpreter, with no container
     /// (flyte.sandbox.orchestrator).
     Sandbox = 1,
+    /// Runs each task in its own microVM, such as an interactive sandbox session, with no pod.
+    /// Needs nodes with hardware virtualization. A task of this kind is never retried: a retry
+    /// would start a fresh VM at a new address while callers still hold the old one.
+    Microvm = 2,
 }
 impl WorkerKind {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -3129,6 +3133,7 @@ impl WorkerKind {
         match self {
             WorkerKind::Unspecified => "WORKER_KIND_UNSPECIFIED",
             WorkerKind::Sandbox => "WORKER_KIND_SANDBOX",
+            WorkerKind::Microvm => "WORKER_KIND_MICROVM",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -3136,6 +3141,7 @@ impl WorkerKind {
         match value {
             "WORKER_KIND_UNSPECIFIED" => Some(Self::Unspecified),
             "WORKER_KIND_SANDBOX" => Some(Self::Sandbox),
+            "WORKER_KIND_MICROVM" => Some(Self::Microvm),
             _ => None,
         }
     }
