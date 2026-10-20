@@ -5,20 +5,28 @@ package flyteidl2.common;
 option go_package = "github.com/flyteorg/flyte/v2/gen/go/flyteidl2/common";
 
 // ActionAddress is where a running action can be reached while it serves traffic, for example an
-// interactive sandbox session. Callers use `url` when it is set, and otherwise `pod`. Routing
-// through the data proxy for callers outside the cluster (such as a user's laptop) builds on the
-// same fields.
+// interactive sandbox session.
+//
+// Callers resolve it in this order:
+//   1. `url`, when set.
+//   2. Otherwise the pod, from inside the cluster: `http://{pod.ip}:{pod.port}{path}`.
+//   3. Later, for callers outside the cluster (such as a user's laptop), the data proxy's pod route:
+//      `/dataplane/pod/v1/{pod.namespace}/{pod.name}{path}`.
 message ActionAddress {
-  // An endpoint the action serves on, reachable from inside the cluster. Set by workers that serve
-  // many actions behind one address, e.g. `http://sandbox-agent.ns.svc:8080/s/<session>`.
-  // Preferred over `pod` when set.
-  string url = 1;
+  // The pod serving the action: the action's own pod, or the pod of a worker that serves many
+  // actions (e.g. a sandbox agent hosting sessions).
+  PodAddress pod = 1;
 
-  // The pod serving the action, when it has its own pod.
-  PodAddress pod = 2;
+  // The path on that pod that reaches this action, e.g. `/s/<session>` on a sandbox agent. Empty
+  // when the whole pod serves the action.
+  string path = 2;
+
+  // An endpoint that cannot be derived from the pod, such as a gateway or tunnel URL. Takes
+  // precedence over `pod` and `path` when set.
+  string url = 3;
 
   // The cluster the action runs in.
-  string cluster = 3;
+  string cluster = 4;
 }
 
 // PodAddress locates a pod that serves an action.
@@ -27,6 +35,6 @@ message PodAddress {
   string name = 2;
   // The pod's IP, reachable from inside the cluster.
   string ip = 3;
-  // The port the action serves on.
+  // The port the action is served on.
   uint32 port = 4;
 }

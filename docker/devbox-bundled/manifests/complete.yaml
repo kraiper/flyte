@@ -6916,9 +6916,14 @@ spec:
                   cluster:
                     description: Cluster is the cluster the action runs in.
                     type: string
+                  path:
+                    description: |-
+                      Path is the path on Pod that reaches this action (e.g. /s/<session>); empty when the whole
+                      pod serves it.
+                    type: string
                   pod:
-                    description: Pod is the pod serving the action, when it has its
-                      own pod.
+                    description: 'Pod is the pod serving the action: its own, or that
+                      of a worker serving many actions.'
                     properties:
                       ip:
                         description: IP is the pod's IP, reachable from inside the
@@ -6934,8 +6939,9 @@ spec:
                         type: integer
                     type: object
                   url:
-                    description: URL is an endpoint the action serves on, reachable
-                      from inside the cluster.
+                    description: |-
+                      URL is an endpoint that cannot be derived from Pod (a gateway or tunnel); it takes
+                      precedence when set.
                     type: string
                 type: object
               attemptStartedAt:

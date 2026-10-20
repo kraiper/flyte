@@ -10,37 +10,49 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file flyteidl2/common/address.proto.
  */
 export const file_flyteidl2_common_address: GenFile = /*@__PURE__*/
-  fileDesc("Ch5mbHl0ZWlkbDIvY29tbW9uL2FkZHJlc3MucHJvdG8SEGZseXRlaWRsMi5jb21tb24iWAoNQWN0aW9uQWRkcmVzcxILCgN1cmwYASABKAkSKQoDcG9kGAIgASgLMhwuZmx5dGVpZGwyLmNvbW1vbi5Qb2RBZGRyZXNzEg8KB2NsdXN0ZXIYAyABKAkiRwoKUG9kQWRkcmVzcxIRCgluYW1lc3BhY2UYASABKAkSDAoEbmFtZRgCIAEoCRIKCgJpcBgDIAEoCRIMCgRwb3J0GAQgASgNQr0BChRjb20uZmx5dGVpZGwyLmNvbW1vbkIMQWRkcmVzc1Byb3RvSAJQAVo0Z2l0aHViLmNvbS9mbHl0ZW9yZy9mbHl0ZS92Mi9nZW4vZ28vZmx5dGVpZGwyL2NvbW1vbqICA0ZDWKoCEEZseXRlaWRsMi5Db21tb27KAhBGbHl0ZWlkbDJcQ29tbW9u4gIcRmx5dGVpZGwyXENvbW1vblxHUEJNZXRhZGF0YeoCEUZseXRlaWRsMjo6Q29tbW9uYgZwcm90bzM");
+  fileDesc("Ch5mbHl0ZWlkbDIvY29tbW9uL2FkZHJlc3MucHJvdG8SEGZseXRlaWRsMi5jb21tb24iZgoNQWN0aW9uQWRkcmVzcxIpCgNwb2QYASABKAsyHC5mbHl0ZWlkbDIuY29tbW9uLlBvZEFkZHJlc3MSDAoEcGF0aBgCIAEoCRILCgN1cmwYAyABKAkSDwoHY2x1c3RlchgEIAEoCSJHCgpQb2RBZGRyZXNzEhEKCW5hbWVzcGFjZRgBIAEoCRIMCgRuYW1lGAIgASgJEgoKAmlwGAMgASgJEgwKBHBvcnQYBCABKA1CvQEKFGNvbS5mbHl0ZWlkbDIuY29tbW9uQgxBZGRyZXNzUHJvdG9IAlABWjRnaXRodWIuY29tL2ZseXRlb3JnL2ZseXRlL3YyL2dlbi9nby9mbHl0ZWlkbDIvY29tbW9uogIDRkNYqgIQRmx5dGVpZGwyLkNvbW1vbsoCEEZseXRlaWRsMlxDb21tb27iAhxGbHl0ZWlkbDJcQ29tbW9uXEdQQk1ldGFkYXRh6gIRRmx5dGVpZGwyOjpDb21tb25iBnByb3RvMw");
 
 /**
  * ActionAddress is where a running action can be reached while it serves traffic, for example an
- * interactive sandbox session. Callers use `url` when it is set, and otherwise `pod`. Routing
- * through the data proxy for callers outside the cluster (such as a user's laptop) builds on the
- * same fields.
+ * interactive sandbox session.
+ *
+ * Callers resolve it in this order:
+ *   1. `url`, when set.
+ *   2. Otherwise the pod, from inside the cluster: `http://{pod.ip}:{pod.port}{path}`.
+ *   3. Later, for callers outside the cluster (such as a user's laptop), the data proxy's pod route:
+ *      `/dataplane/pod/v1/{pod.namespace}/{pod.name}{path}`.
  *
  * @generated from message flyteidl2.common.ActionAddress
  */
 export type ActionAddress = Message<"flyteidl2.common.ActionAddress"> & {
   /**
-   * An endpoint the action serves on, reachable from inside the cluster. Set by workers that serve
-   * many actions behind one address, e.g. `http://sandbox-agent.ns.svc:8080/s/<session>`.
-   * Preferred over `pod` when set.
+   * The pod serving the action: the action's own pod, or the pod of a worker that serves many
+   * actions (e.g. a sandbox agent hosting sessions).
    *
-   * @generated from field: string url = 1;
-   */
-  url: string;
-
-  /**
-   * The pod serving the action, when it has its own pod.
-   *
-   * @generated from field: flyteidl2.common.PodAddress pod = 2;
+   * @generated from field: flyteidl2.common.PodAddress pod = 1;
    */
   pod?: PodAddress;
 
   /**
+   * The path on that pod that reaches this action, e.g. `/s/<session>` on a sandbox agent. Empty
+   * when the whole pod serves the action.
+   *
+   * @generated from field: string path = 2;
+   */
+  path: string;
+
+  /**
+   * An endpoint that cannot be derived from the pod, such as a gateway or tunnel URL. Takes
+   * precedence over `pod` and `path` when set.
+   *
+   * @generated from field: string url = 3;
+   */
+  url: string;
+
+  /**
    * The cluster the action runs in.
    *
-   * @generated from field: string cluster = 3;
+   * @generated from field: string cluster = 4;
    */
   cluster: string;
 };
@@ -76,7 +88,7 @@ export type PodAddress = Message<"flyteidl2.common.PodAddress"> & {
   ip: string;
 
   /**
-   * The port the action serves on.
+   * The port the action is served on.
    *
    * @generated from field: uint32 port = 4;
    */

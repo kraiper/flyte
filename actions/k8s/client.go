@@ -722,7 +722,7 @@ func nextAddress(held *executorv1.ActionAddress, heldAttempts, attempts uint32, 
 }
 
 func addressToStatus(a *common.ActionAddress) *executorv1.ActionAddress {
-	out := &executorv1.ActionAddress{URL: a.GetUrl(), Cluster: a.GetCluster()}
+	out := &executorv1.ActionAddress{Path: a.GetPath(), URL: a.GetUrl(), Cluster: a.GetCluster()}
 	if p := a.GetPod(); p != nil {
 		out.Pod = &executorv1.PodAddress{Namespace: p.GetNamespace(), Name: p.GetName(), IP: p.GetIp(), Port: p.GetPort()}
 	}
@@ -736,7 +736,7 @@ func AddressFromStatus(taskAction *executorv1.TaskAction) *common.ActionAddress 
 	if a == nil || isTerminalPhase(GetPhaseFromConditions(taskAction)) {
 		return nil
 	}
-	out := &common.ActionAddress{Url: a.URL, Cluster: a.Cluster}
+	out := &common.ActionAddress{Path: a.Path, Url: a.URL, Cluster: a.Cluster}
 	if a.Pod != nil {
 		out.Pod = &common.PodAddress{Namespace: a.Pod.Namespace, Name: a.Pod.Name, Ip: a.Pod.IP, Port: a.Pod.Port}
 	}

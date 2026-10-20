@@ -242,14 +242,19 @@ func (in *TaskActionSpec) SetActionSpec(spec *workflow.ActionSpec) error {
 // failed/aborted attempt. Persisted on TaskAction status so it can be
 // surfaced as a full core.ExecutionError on the ActionUpdate (and reach
 // ActionAddress is where a running action can be reached. Callers use URL when it is set, and
-// otherwise Pod.
+// otherwise Pod and Path.
 type ActionAddress struct {
-	// URL is an endpoint the action serves on, reachable from inside the cluster.
-	// +optional
-	URL string `json:"url,omitempty"`
-	// Pod is the pod serving the action, when it has its own pod.
+	// Pod is the pod serving the action: its own, or that of a worker serving many actions.
 	// +optional
 	Pod *PodAddress `json:"pod,omitempty"`
+	// Path is the path on Pod that reaches this action (e.g. /s/<session>); empty when the whole
+	// pod serves it.
+	// +optional
+	Path string `json:"path,omitempty"`
+	// URL is an endpoint that cannot be derived from Pod (a gateway or tunnel); it takes
+	// precedence when set.
+	// +optional
+	URL string `json:"url,omitempty"`
 	// Cluster is the cluster the action runs in.
 	// +optional
 	Cluster string `json:"cluster,omitempty"`

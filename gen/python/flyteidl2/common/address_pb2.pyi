@@ -5,14 +5,16 @@ from typing import ClassVar as _ClassVar, Mapping as _Mapping, Optional as _Opti
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class ActionAddress(_message.Message):
-    __slots__ = ["url", "pod", "cluster"]
-    URL_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ["pod", "path", "url", "cluster"]
     POD_FIELD_NUMBER: _ClassVar[int]
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    URL_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_FIELD_NUMBER: _ClassVar[int]
-    url: str
     pod: PodAddress
+    path: str
+    url: str
     cluster: str
-    def __init__(self, url: _Optional[str] = ..., pod: _Optional[_Union[PodAddress, _Mapping]] = ..., cluster: _Optional[str] = ...) -> None: ...
+    def __init__(self, pod: _Optional[_Union[PodAddress, _Mapping]] = ..., path: _Optional[str] = ..., url: _Optional[str] = ..., cluster: _Optional[str] = ...) -> None: ...
 
 class PodAddress(_message.Message):
     __slots__ = ["namespace", "name", "ip", "port"]

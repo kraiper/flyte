@@ -57,8 +57,6 @@ func (m *ActionAddress) validate(all bool) error {
 
 	var errors []error
 
-	// no validation rules for Url
-
 	if all {
 		switch v := interface{}(m.GetPod()).(type) {
 		case interface{ ValidateAll() error }:
@@ -87,6 +85,10 @@ func (m *ActionAddress) validate(all bool) error {
 			}
 		}
 	}
+
+	// no validation rules for Path
+
+	// no validation rules for Url
 
 	// no validation rules for Cluster
 
